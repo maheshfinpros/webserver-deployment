@@ -6,7 +6,7 @@ pipeline {
         CODEDEPLOY_GROUP = 'mahesh-project-Dg'
         REPO_URL = 'https://github.com/maheshfinpros/webserver-deployment.git'
         GITHUB_CREDENTIALS_ID = 'github'
-        AWS_CREDENTIALS_ID = 'aws-access'
+        AWS_CREDENTIALS_ID = 'aws-access' 
     }
     stages {
         stage('Checkout') {
