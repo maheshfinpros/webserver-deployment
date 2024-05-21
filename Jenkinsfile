@@ -1,46 +1,56 @@
 pipeline {
     agent any
     environment {
-        PATH = "/usr/local/bin:${env.PATH}" // Ensure aws is in the PATH
+        S3_BUCKET = 'mahesh-project-asg'
+        CODEDEPLOY_APP = 'mahesh-project-asg'
+        CODEDEPLOY_GROUP = 'mahesh-project-Dg'
+        REPO_URL = 'https://github.com/maheshfinpros/webserver-deployment.git'
+        GITHUB_CREDENTIALS_ID = 'github'
+        AWS_CREDENTIALS_ID = 'aws-access' 
     }
     stages {
         stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']],
-                          userRemoteConfigs: [[url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github']]])
+                script {
+                    checkout([$class: 'GitSCM', 
+                              branches: [[name: '*/main']], 
+                              doGenerateSubmoduleConfigurations: false, 
+                              extensions: [], 
+                              submoduleCfg: [], 
+                              userRemoteConfigs: [[credentialsId: GITHUB_CREDENTIALS_ID, url: REPO_URL]]])
+                }
             }
         }
         stage('Upload to S3') {
             steps {
-                withAWS(region: 'us-west-2', credentials: 'aws-credentials-id') {
-                    sh 'aws s3 cp index1.html s3://mahesh-project-asg/index1.html'
-                    sh 'aws s3 cp index2.html s3://mahesh-project-asg/index2.html'
+                withAWS(credentials: AWS_CREDENTIALS_ID) {
+                    sh 'aws s3 cp index1.html s3://${S3_BUCKET}/index1.html'
+                    sh 'aws s3 cp index2.html s3://${S3_BUCKET}/index2.html'
                 }
             }
         }
         stage('Deploy to EC2') {
             steps {
-                withAWS(region: 'us-west-2', credentials: 'aws-credentials-id') {
-                    script {
-                        def activeDeployment = sh(script: 'aws deploy list-deployments --application-name mahesh-project-asg --deployment-group-name mahesh-project-Dg --deployment-status-filter InProgress', returnStdout: true).trim()
-                        
-                        if (activeDeployment) {
-                            echo 'There is an active deployment. Waiting for it to complete...'
-                            sleep(time: 300, unit: 'SECONDS') // Wait for 5 minutes (adjust as needed)
-                            // Optionally, you could add logic here to wait until the deployment is done.
-                        } else {
-                            echo 'No active deployment found. Proceeding with new deployment...'
-                            sh 'aws deploy create-deployment --application-name mahesh-project-asg --deployment-group-name mahesh-project-Dg --s3-location bucket=mahesh-project-asg,bundleType=zip,key=index1.html --file-exists-behavior OVERWRITE'
-                            sh 'aws deploy create-deployment --application-name mahesh-project-asg --deployment-group-name mahesh-project-Dg --s3-location bucket=mahesh-project-asg,bundleType=zip,key=index2.html --file-exists-behavior OVERWRITE'
-                        }
-                    }
+                withAWS(credentials: AWS_CREDENTIALS_ID) {
+                    sh '''
+                    aws deploy create-deployment \
+                        --application-name ${CODEDEPLOY_APP} \
+                        --deployment-group-name ${CODEDEPLOY_GROUP} \
+                        --s3-location bucket=${S3_BUCKET},bundleType=zip,key=index1.html \
+                        --file-exists-behavior OVERWRITE
+                    aws deploy create-deployment \
+                        --application-name ${CODEDEPLOY_APP} \
+                        --deployment-group-name ${CODEDEPLOY_GROUP} \
+                        --s3-location bucket=${S3_BUCKET},bundleType=zip,key=index2.html \
+                        --file-exists-behavior OVERWRITE
+                    '''
                 }
             }
         }
     }
     post {
-        always {
-            echo 'Pipeline finished.'
+        success {
+            echo 'Deployment successful!'
         }
         failure {
             echo 'Deployment failed!'
