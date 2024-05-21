@@ -5,13 +5,20 @@ pipeline {
         CODEDEPLOY_APP = 'mahesh-project-asg'
         CODEDEPLOY_GROUP = 'mahesh-project-Dg'
         REPO_URL = 'https://github.com/maheshfinpros/webserver-deployment.git'
-        GITHUB_CREDENTIALS_ID = 'github'  // Ensure this matches the ID used when adding credentials
+        GITHUB_CREDENTIALS_ID = 'github'
         AWS_CREDENTIALS_ID = 'aws-access'
     }
     stages {
         stage('Checkout') {
             steps {
-                git url: REPO_URL, credentialsId: GITHUB_CREDENTIALS_ID
+                script {
+                    checkout([$class: 'GitSCM', 
+                              branches: [[name: '*/main']], 
+                              doGenerateSubmoduleConfigurations: false, 
+                              extensions: [], 
+                              submoduleCfg: [], 
+                              userRemoteConfigs: [[credentialsId: GITHUB_CREDENTIALS_ID, url: REPO_URL]]])
+                }
             }
         }
         stage('Upload to S3') {
