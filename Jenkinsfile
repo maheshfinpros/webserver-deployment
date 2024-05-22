@@ -1,56 +1,62 @@
 pipeline {
     agent any
+
     environment {
-        S3_BUCKET = 'mahesh-project-asg'
-        CODEDEPLOY_APP = 'mahesh-project-asg'
-        CODEDEPLOY_GROUP = 'mahesh-project-Dg'
-        REPO_URL = 'https://github.com/maheshfinpros/webserver-deployment.git'
-        GITHUB_CREDENTIALS_ID = 'github'
-        AWS_CREDENTIALS_ID = 'aws-access' 
+        AWS_DEFAULT_REGION = 'your-aws-region'
+        S3_BUCKET = 'your-s3-bucket-name'
+        APPLICATION_NAME = 'WebApp'
+        DEPLOYMENT_GROUP_NAME = 'WebAppDeploymentGroup'
     }
+
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    checkout([$class: 'GitSCM', 
-                              branches: [[name: '*/main']], 
-                              doGenerateSubmoduleConfigurations: false, 
-                              extensions: [], 
-                              submoduleCfg: [], 
-                              userRemoteConfigs: [[credentialsId: GITHUB_CREDENTIALS_ID, url: REPO_URL]]])
+                git branch: 'main', url: 'https://github.com/your-repo/your-app.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                withAWS(credentials: 'your-aws-credentials-id') {
+                    script {
+                        def buildCommand = """
+                            aws codebuild start-build --project-name WebAppBuild
+                        """
+                        def buildOutput = sh(script: buildCommand, returnStdout: true).trim()
+                        echo "Build output: ${buildOutput}"
+                    }
                 }
             }
         }
         stage('Upload to S3') {
             steps {
-                withAWS(credentials: AWS_CREDENTIALS_ID) {
-                    sh 'aws s3 cp index1.html s3://${S3_BUCKET}/index1.html'
-                    sh 'aws s3 cp index2.html s3://${S3_BUCKET}/index2.html'
+                withAWS(credentials: 'your-aws-credentials-id') {
+                    sh '''
+                        aws s3 cp ./appspec.yml s3://$S3_BUCKET/appspec.yml
+                        aws s3 cp ./your-artifact.zip s3://$S3_BUCKET/your-artifact.zip
+                    '''
                 }
             }
         }
-        stage('Deploy to EC2') {
+        stage('Deploy') {
             steps {
-                withAWS(credentials: AWS_CREDENTIALS_ID) {
-                    sh '''
-                    aws deploy create-deployment \
-                        --application-name ${CODEDEPLOY_APP} \
-                        --deployment-group-name ${CODEDEPLOY_GROUP} \
-                        --s3-location bucket=${S3_BUCKET},bundleType=zip,key=index1.html \
-                        --file-exists-behavior OVERWRITE
-                    aws deploy create-deployment \
-                        --application-name ${CODEDEPLOY_APP} \
-                        --deployment-group-name ${CODEDEPLOY_GROUP} \
-                        --s3-location bucket=${S3_BUCKET},bundleType=zip,key=index2.html \
-                        --file-exists-behavior OVERWRITE
-                    '''
+                withAWS(credentials: 'your-aws-credentials-id') {
+                    script {
+                        def deployCommand = """
+                            aws deploy create-deployment \
+                                --application-name $APPLICATION_NAME \
+                                --deployment-group-name $DEPLOYMENT_GROUP_NAME \
+                                --s3-location bucket=$S3_BUCKET,bundleType=zip,key=your-artifact.zip
+                        """
+                        def deployOutput = sh(script: deployCommand, returnStdout: true).trim()
+                        echo "Deploy output: ${deployOutput}"
+                    }
                 }
             }
         }
     }
     post {
         success {
-            echo 'Deployment successful!'
+            echo 'Deployment was successful!'
         }
         failure {
             echo 'Deployment failed!'
