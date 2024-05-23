@@ -1,5 +1,80 @@
-<!-- index1.html -->
-<html>
-<head><title>Web Server 1</title></head>
-<body><h1>This is Web Server 1</h1></body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Scaling Installation Steps</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            padding: 0;
+        }
+        h1 {
+            color: #333;
+        }
+        ol {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Auto Scaling Installation Steps</h1>
+    <ol>
+        <li>
+            <strong>Create an AMI:</strong> 
+            <ul>
+                <li>Launch an EC2 instance with the desired configuration.</li>
+                <li>Install necessary software and configure the instance.</li>
+                <li>Create an Amazon Machine Image (AMI) from the configured instance.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Create a Launch Configuration:</strong> 
+            <ul>
+                <li>Go to the EC2 Dashboard.</li>
+                <li>Navigate to <em>Auto Scaling</em> &gt; <em>Launch Configurations</em>.</li>
+                <li>Click <em>Create launch configuration</em>.</li>
+                <li>Specify the AMI ID, instance type, and other settings.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Create an Auto Scaling Group:</strong> 
+            <ul>
+                <li>Go to the EC2 Dashboard.</li>
+                <li>Navigate to <em>Auto Scaling</em> &gt; <em>Auto Scaling Groups</em>.</li>
+                <li>Click <em>Create Auto Scaling group</em>.</li>
+                <li>Specify the launch configuration, VPC, and subnets.</li>
+                <li>Set the desired, minimum, and maximum number of instances.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Configure Auto Scaling Policies:</strong> 
+            <ul>
+                <li>Select the Auto Scaling group created.</li>
+                <li>Go to the <em>Details</em> tab and click <em>Edit</em>.</li>
+                <li>Specify scaling policies based on CPU utilization or other metrics.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Attach Load Balancer (Optional):</strong> 
+            <ul>
+                <li>If using a load balancer, go to the EC2 Dashboard.</li>
+                <li>Navigate to <em>Load Balancers</em> and create one if needed.</li>
+                <li>Attach the load balancer to the Auto Scaling group.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Monitor and Adjust:</strong> 
+            <ul>
+                <li>Use CloudWatch to monitor the performance of the Auto Scaling group.</li>
+                <li>Adjust the scaling policies as necessary based on performance metrics.</li>
+            </ul>
+        </li>
+    </ol>
+</body>
 </html>
