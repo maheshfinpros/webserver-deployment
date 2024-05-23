@@ -1,10 +1,3 @@
-def deployAPI(Map params) {
-    // Your deployment logic here
-    // Example: AWS CodeDeploy deployment
-    def codeDeploy = new AWSCodeDeploy()
-    codeDeploy.deployApplication(params)
-}
-
 pipeline {
     agent any
 
@@ -24,6 +17,14 @@ pipeline {
         }
         stage('Build') {
             steps {
+                script {
+                    echo 'Building the project...'
+                    // Add your build commands here
+                }
+            }
+        }
+        stage('Package') {
+            steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html > build.log 2>&1'
                     archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
@@ -41,18 +42,13 @@ pipeline {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     script {
-                        deployAPI([
-                            applicationName: "${APPLICATION_NAME}",
-                            deploymentGroupName: "${DEPLOYMENT_GROUP_NAME}",
-                            revision: [
-                                revisionType: 'S3',
-                                s3Location: [
-                                    bucket: "${S3_BUCKET_NAME}",
-                                    key: "webserver-deployment.zip",
-                                    bundleType: 'zip'
-                                ]
-                            ]
-                        ])
+                        sh """
+                        aws deploy create-deployment \
+                            --application-name ${APPLICATION_NAME} \
+                            --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
+                            --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
+                            --region ${AWS_REGION}
+                        """
                     }
                 }
             }
