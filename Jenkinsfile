@@ -18,7 +18,8 @@ pipeline {
         stage('Build') {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html'
+                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html > build.log 2>&1'
+                    archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
                 }
             }
         }
@@ -33,11 +34,18 @@ pipeline {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     script {
-                        def deployment = awsCodeDeploy(
-                            application: "${APPLICATION_NAME}",
-                            deploymentGroup: "${DEPLOYMENT_GROUP_NAME}",
-                            s3Location: [bucket: "${S3_BUCKET_NAME}", key: "webserver-deployment.zip", bundleType: 'zip']
-                        )
+                        def deploy = deployAPI.deploy([
+                            applicationName: "${APPLICATION_NAME}",
+                            deploymentGroupName: "${DEPLOYMENT_GROUP_NAME}",
+                            revision: [
+                                revisionType: 'S3',
+                                s3Location: [
+                                    bucket: "${S3_BUCKET_NAME}",
+                                    key: "webserver-deployment.zip",
+                                    bundleType: 'zip'
+                                ]
+                            ]
+                        ])
                     }
                 }
             }
@@ -46,6 +54,7 @@ pipeline {
     post {
         always {
             script {
+                sh 'mkdir -p jenkins/logs'
                 try {
                     archiveArtifacts artifacts: '**/target/*.log', allowEmptyArchive: true
                     withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
