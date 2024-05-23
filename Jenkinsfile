@@ -1,3 +1,10 @@
+def deployAPI(Map params) {
+    // Your deployment logic here
+    // Example: AWS CodeDeploy deployment
+    def codeDeploy = new AWSCodeDeploy()
+    codeDeploy.deployApplication(params)
+}
+
 pipeline {
     agent any
 
@@ -34,7 +41,7 @@ pipeline {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     script {
-                        def deploy = deployAPI.deploy([
+                        deployAPI([
                             applicationName: "${APPLICATION_NAME}",
                             deploymentGroupName: "${DEPLOYMENT_GROUP_NAME}",
                             revision: [
