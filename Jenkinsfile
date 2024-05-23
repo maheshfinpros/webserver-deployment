@@ -2,61 +2,57 @@ pipeline {
     agent any
 
     environment {
-        S3_BUCKET = 'mahesh-project-asg'
-        APPLICATION_NAME = 'mahesh-jenkins'
-        DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
         AWS_REGION = 'ap-south-1'
         AWS_CREDENTIALS_ID = 'aws-access'
-        GIT_CREDENTIALS_ID = 'github'
-        GIT_REPO = 'https://github.com/maheshfinpros/webserver-deployment.git'
+        S3_BUCKET_NAME = 'mahesh-project-asg'
+        APPLICATION_NAME = 'mahesh-jenkins'
+        DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', credentialsId: "${GIT_CREDENTIALS_ID}", url: "${GIT_REPO}"
+                git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
             }
         }
-
         stage('Build') {
             steps {
-                script {
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        sh 'zip -r webserver-deployment.zip *'
-                        s3Upload(bucket: "${S3_BUCKET}", path: "webserver-deployment.zip", file: "webserver-deployment.zip")
-                    }
+                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html'
                 }
             }
         }
-
+        stage('Upload to S3') {
+            steps {
+                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                    s3Upload(bucket: "${S3_BUCKET_NAME}", path: "webserver-deployment.zip", file: "webserver-deployment.zip")
+                }
+            }
+        }
         stage('Deploy') {
             steps {
-                script {
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        sh """
-                        aws deploy create-deployment \
-                            --application-name ${APPLICATION_NAME} \
-                            --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
-                            --s3-location bucket=${S3_BUCKET},bundleType=zip,key=webserver-deployment.zip
-                        """
+                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                    script {
+                        def deployment = awsCodeDeploy(
+                            application: "${APPLICATION_NAME}",
+                            deploymentGroup: "${DEPLOYMENT_GROUP_NAME}",
+                            s3Location: [bucket: "${S3_BUCKET_NAME}", key: "webserver-deployment.zip", bundleType: 'zip']
+                        )
                     }
                 }
-            }
-        }
-
-        stage('Post-Deployment') {
-            steps {
-                echo 'Deployment completed successfully!'
             }
         }
     }
-
     post {
         always {
-            archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
             script {
-                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                    s3Upload(bucket: "${S3_BUCKET}", path: "jenkins-logs/${BUILD_NUMBER}.log", file: "jenkins/logs/${BUILD_NUMBER}.log")
+                try {
+                    archiveArtifacts artifacts: '**/target/*.log', allowEmptyArchive: true
+                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                        s3Upload(bucket: "${S3_BUCKET_NAME}", path: "jenkins-logs/${env.BUILD_NUMBER}.log", file: "jenkins/logs/${env.BUILD_NUMBER}.log")
+                    }
+                } catch (Exception e) {
+                    echo "Error uploading logs: ${e}"
                 }
             }
         }
