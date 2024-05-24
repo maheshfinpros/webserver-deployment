@@ -3,6 +3,11 @@ os: linux
 files:
   - source: /
     destination: /var/www/html
+permissions:
+  - object: /var/www/html
+    pattern: "**"
+    owner: www-data
+    group: www-data
 hooks:
   BeforeInstall:
     - location: scripts/before_install.sh
