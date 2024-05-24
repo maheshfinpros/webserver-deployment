@@ -26,7 +26,7 @@ pipeline {
         stage('Package') {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html > build.log 2>&1'
+                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ > build.log 2>&1'
                     archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
                 }
             }
