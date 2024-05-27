@@ -19,7 +19,7 @@ pipeline {
             steps {
                 script {
                     echo 'Building the project...'
-                    // Add your build commands here
+                    // Add your build commands here if necessary
                 }
             }
         }
@@ -59,9 +59,9 @@ pipeline {
             script {
                 sh 'mkdir -p jenkins/logs'
                 try {
-                    archiveArtifacts artifacts: '**/target/*.log', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
                     withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        s3Upload(bucket: "${S3_BUCKET_NAME}", path: "jenkins-logs/${env.BUILD_NUMBER}.log", file: "jenkins/logs/${env.BUILD_NUMBER}.log")
+                        s3Upload(bucket: "${S3_BUCKET_NAME}", path: "jenkins-logs/${env.BUILD_NUMBER}.log", file: "build.log")
                     }
                 } catch (Exception e) {
                     echo "Error uploading logs: ${e}"
