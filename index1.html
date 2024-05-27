@@ -3,45 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deployment Details - Mahesh Web Server 1</title>
+    <title>Current Time Display</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
-        h1 {
+        #time {
+            font-size: 3em;
             color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .details {
-            margin-top: 20px;
-        }
-        .detail-item {
-            margin-bottom: 10px;
-        }
-        .detail-label {
-            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Deployment Details - Mahesh Web Server 1</h1>
-        <div class="details">
-            <div class="detail-item">
-                <span class="detail-label">Server Name:</span> Mahesh Web Server 1
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Deployed By:</span> Jenkins
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Last Deployment Time:</span> May 27, 2024 10:30 AM (UTC)
-            </div>
-            <!-- Add more deployment details as needed -->
-        </div>
-    </div>
+    <div id="time"></div>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const currentTime = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('time').textContent = currentTime;
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime(); // Initial call to display time immediately
+    </script>
 </body>
 </html>
