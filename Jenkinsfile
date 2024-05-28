@@ -7,6 +7,7 @@ pipeline {
         S3_BUCKET_NAME = 'mahesh-project-asg'
         APPLICATION_NAME = 'mahesh-jenkins'
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
+        SSH_CREDENTIALS_ID = 'jenkins-ssh-key'
     }
 
     stages {
@@ -49,6 +50,35 @@ pipeline {
                             --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
                             --region ${AWS_REGION}
                         """
+                    }
+                }
+            }
+        }
+        stage('Get Instance Details') {
+            steps {
+                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                    script {
+                        def instances = sh(script: 'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]" --output text', returnStdout: true).trim()
+                        env.INSTANCE_DETAILS = instances
+                        echo "Instance Details: ${env.INSTANCE_DETAILS}"
+                    }
+                }
+            }
+        }
+        stage('Run Commands on Instances') {
+            steps {
+                script {
+                    def instanceDetails = env.INSTANCE_DETAILS.split('\n')
+                    instanceDetails.each { detail ->
+                        def parts = detail.split('\\s+')
+                        def instanceId = parts[0]
+                        def privateIp = parts[1]
+                        
+                        sshagent(credentials: ['jenkins-ssh-key']) {
+                            sh """
+                            ssh -o StrictHostKeyChecking=no -i ~/.ssh/webserver-key ${USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
+                            """
+                        }
                     }
                 }
             }
