@@ -7,7 +7,8 @@ pipeline {
         S3_BUCKET_NAME = 'mahesh-project-asg'
         APPLICATION_NAME = 'mahesh-jenkins'
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
-        SSH_CREDENTIALS_ID = 'jenkins-ssh-key'
+        SSH_CREDENTIALS_ID = 'jenkins-ssh-key'  // Ensure this matches the ID of your Jenkins SSH credentials
+        SSH_USERNAME = 'ubuntu'  // Replace with your SSH username (e.g., ec2-user)
     }
 
     stages {
@@ -74,9 +75,9 @@ pipeline {
                         def instanceId = parts[0]
                         def privateIp = parts[1]
                         
-                        sshagent(credentials: ['jenkins-ssh-key']) {
+                        sshagent(credentials: ['${SSH_CREDENTIALS_ID}']) {
                             sh """
-                            ssh -o StrictHostKeyChecking=no -i ~/.ssh/webserver-key ${USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
+                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
                             """
                         }
                     }
