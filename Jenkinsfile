@@ -7,7 +7,7 @@ pipeline {
         S3_BUCKET_NAME = 'mahesh-project-asg'
         APPLICATION_NAME = 'mahesh-jenkins'
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
-        SSH_CREDENTIALS_ID = 'mahesh-ssh'
+        SSH_CREDENTIALS_ID = 'mahesh-ssh'  // Updated SSH credentials ID
         SSH_USERNAME = 'ubuntu'
     }
 
@@ -44,14 +44,13 @@ pipeline {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     script {
-                        def deploymentCommand = """
+                        sh """
                         aws deploy create-deployment \
                             --application-name ${APPLICATION_NAME} \
                             --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
                             --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
                             --region ${AWS_REGION}
                         """
-                        sh deploymentCommand
                     }
                 }
             }
@@ -79,7 +78,7 @@ pipeline {
                         sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                             sh """
                             echo "Attempting SSH connection to ${privateIp} (${instanceId})"
-                            ssh -v -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
+                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
                             """
                         }
                     }
