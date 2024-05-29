@@ -17,7 +17,6 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
             }
         }
-
         stage('Build') {
             steps {
                 script {
@@ -26,16 +25,14 @@ pipeline {
                 }
             }
         }
-
         stage('Package') {
             steps {
-                script {
+                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ > build.log 2>&1'
-                    archiveArtifacts artifacts: 'webserver-deployment.zip, build.log', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
                 }
             }
         }
-
         stage('Upload to S3') {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
@@ -43,7 +40,6 @@ pipeline {
                 }
             }
         }
-
         stage('Deploy') {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
@@ -59,19 +55,17 @@ pipeline {
                 }
             }
         }
-
         stage('Get Instance Details') {
             steps {
                 withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                     script {
-                        def instances = sh(script: 'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=ASG-webserver*" --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]" --output text', returnStdout: true).trim()
+                        def instances = sh(script: 'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]" --output text', returnStdout: true).trim()
                         env.INSTANCE_DETAILS = instances
                         echo "Instance Details: ${env.INSTANCE_DETAILS}"
                     }
                 }
             }
         }
-
         stage('Run Commands on Instances') {
             steps {
                 script {
@@ -81,9 +75,9 @@ pipeline {
                         def instanceId = parts[0]
                         def privateIp = parts[1]
                         
-                        sshagent([SSH_CREDENTIALS_ID]) {
+                        sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                             sh """
-                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})" && bash -s' < scripts/your-deployment-script.sh
+                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
                             """
                         }
                     }
@@ -91,12 +85,12 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             script {
+                sh 'mkdir -p jenkins/logs'
                 try {
-                    archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
                     withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
                         s3Upload(bucket: "${S3_BUCKET_NAME}", path: "jenkins-logs/${env.BUILD_NUMBER}.log", file: "build.log")
                     }
@@ -105,7 +99,6 @@ pipeline {
                 }
             }
         }
-
         failure {
             echo 'Deployment failed!'
         }
