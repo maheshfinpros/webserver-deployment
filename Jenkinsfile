@@ -40,7 +40,7 @@ pipeline {
         }
         stage('Package') {
             steps {
-                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                withAWS(credentials: 'aws', region: AWS_REGION) {
                     sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/'
                     archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
                 }
@@ -48,14 +48,14 @@ pipeline {
         }
         stage('Upload to S3') {
             steps {
-                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                withAWS(credentials: 'aws', region: AWS_REGION) {
                     sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
                 }
             }
         }
         stage('Deploy') {
             steps {
-                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                withAWS(credentials: 'aws', region: AWS_REGION) {
                     script {
                         sh """
                         aws deploy create-deployment \
@@ -70,7 +70,7 @@ pipeline {
         }
         stage('Get Instance Details') {
             steps {
-                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                withAWS(credentials: 'aws', region: AWS_REGION) {
                     script {
                         def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
                         env.INSTANCE_DETAILS = instances
@@ -109,7 +109,7 @@ pipeline {
                 sh 'mkdir -p jenkins/logs'
                 try {
                     archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
-                    withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
                         sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
                     }
                 } catch (Exception e) {
