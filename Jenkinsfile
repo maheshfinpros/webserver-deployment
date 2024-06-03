@@ -3,12 +3,14 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        AWS_CREDENTIALS_ID = 'aws-access'
         S3_BUCKET_NAME = 'mahesh-project-asg'
         APPLICATION_NAME = 'mahesh-jenkins'
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
-        SSH_CREDENTIALS_ID = 'mahesh-ssh'  // Updated SSH credentials ID
+        SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
+
+        // IAM Role Details
+        IAM_ROLE_ARN = 'arn:aws:iam::<YOUR_ACCOUNT_ID>:role/<YOUR_ROLE_NAME>'
     }
 
     stages {
@@ -17,32 +19,44 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
             }
         }
-        stage('Build') {
+        stage('Assume IAM Role') {
             steps {
                 script {
-                    echo 'Building the project...'
-                    // Add your build commands here if necessary
+                    def stsResponse = sh(script: """
+                        aws sts assume-role --role-arn ${IAM_ROLE_ARN} --role-session-name jenkinsSession --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text
+                    """, returnStdout: true).trim()
+                    def creds = stsResponse.split()
+                    env.AWS_ACCESS_KEY_ID = creds[0]
+                    env.AWS_SECRET_ACCESS_KEY = creds[1]
+                    env.AWS_SESSION_TOKEN = creds[2]
                 }
+            }
+        }
+        stage('Build') {
+            steps {
+                echo 'Building the project...'
+                sh 'npm install'
+                sh 'npm run build'
             }
         }
         stage('Package') {
             steps {
-                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ > build.log 2>&1'
+                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/'
                     archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
                 }
             }
         }
         stage('Upload to S3') {
             steps {
-                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                    s3Upload(bucket: "${S3_BUCKET_NAME}", path: "webserver-deployment.zip", file: "webserver-deployment.zip")
+                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                    sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
                 }
             }
         }
         stage('Deploy') {
             steps {
-                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
                     script {
                         sh """
                         aws deploy create-deployment \
@@ -57,9 +71,9 @@ pipeline {
         }
         stage('Get Instance Details') {
             steps {
-                withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
                     script {
-                        def instances = sh(script: 'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]" --output text', returnStdout: true).trim()
+                        def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
                         env.INSTANCE_DETAILS = instances
                         echo "Instance Details: ${env.INSTANCE_DETAILS}"
                     }
@@ -70,16 +84,20 @@ pipeline {
             steps {
                 script {
                     def instanceDetails = env.INSTANCE_DETAILS.split('\n')
+                    def commands = env.COMMANDS.split(';')
+                    
                     instanceDetails.each { detail ->
                         def parts = detail.split('\\s+')
                         def instanceId = parts[0]
                         def privateIp = parts[1]
                         
-                        sshagent(credentials: [SSH_CREDENTIALS_ID]) {
-                            sh """
-                            echo "Attempting SSH connection to ${privateIp} (${instanceId})"
-                            ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'echo "Running command on ${instanceId} (${privateIp})"'
-                            """
+                        commands.each { cmd ->
+                            sshagent(credentials: [SSH_CREDENTIALS_ID]) {
+                                sh """
+                                echo "Attempting SSH connection to ${privateIp} (${instanceId})"
+                                ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} '${cmd}'
+                                """
+                            }
                         }
                     }
                 }
@@ -92,11 +110,11 @@ pipeline {
                 sh 'mkdir -p jenkins/logs'
                 try {
                     archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        s3Upload(bucket: "${S3_BUCKET_NAME}", path: "jenkins-logs/${env.BUILD_NUMBER}.log", file: "build.log")
+                    withEnv(["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN}"]) {
+                        sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
                     }
                 } catch (Exception e) {
-                    echo "Error uploading logs: ${e}"
+                    echo "Error: ${e.message}"
                 }
             }
         }
