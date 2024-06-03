@@ -9,7 +9,7 @@ pipeline {
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
         
-        IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aw3778-5099-7170-s-codedelpoy-ec2'
+        IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
     }
 
     stages {
