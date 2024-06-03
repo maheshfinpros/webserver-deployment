@@ -8,9 +8,9 @@ pipeline {
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
-
-        // IAM Role Details
-        IAM_ROLE_ARN = 'arn:aws:iam::<YOUR_ACCOUNT_ID>:role/<YOUR_ROLE_NAME>'
+        
+        // Your actual AWS account ID and IAM role ARN
+        IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aw3778-5099-7170-s-codedelpoy-ec2'
     }
 
     stages {
@@ -84,13 +84,13 @@ pipeline {
             steps {
                 script {
                     def instanceDetails = env.INSTANCE_DETAILS.split('\n')
-                    def commands = env.COMMANDS.split(';')
-                    
+                    def commands = env.COMMANDS ? env.COMMANDS.split(';') : ['echo "Default command"']
+
                     instanceDetails.each { detail ->
                         def parts = detail.split('\\s+')
                         def instanceId = parts[0]
                         def privateIp = parts[1]
-                        
+
                         commands.each { cmd ->
                             sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                                 sh """
