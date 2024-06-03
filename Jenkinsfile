@@ -9,7 +9,6 @@ pipeline {
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
         
-        // Your actual AWS account ID and IAM role ARN
         IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aw3778-5099-7170-s-codedelpoy-ec2'
     }
 
