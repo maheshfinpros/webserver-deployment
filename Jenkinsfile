@@ -18,19 +18,19 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
             }
         }
-        stage('Assume IAM Role') {
-            steps {
-                script {
-                    def stsResponse = sh(script: """
-                        aws sts assume-role --role-arn ${IAM_ROLE_ARN} --role-session-name jenkinsSession --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text
-                    """, returnStdout: true).trim()
-                    def creds = stsResponse.split()
-                    env.AWS_ACCESS_KEY_ID = creds[0]
-                    env.AWS_SECRET_ACCESS_KEY = creds[1]
-                    env.AWS_SESSION_TOKEN = creds[2]
-                }
-            }
-        }
+        // stage('Assume IAM Role') {
+        //     steps {
+        //         script {
+        //             def stsResponse = sh(script: """
+        //                 aws sts assume-role --role-arn ${IAM_ROLE_ARN} --role-session-name jenkinsSession --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text
+        //             """, returnStdout: true).trim()
+        //             def creds = stsResponse.split()
+        //             env.AWS_ACCESS_KEY_ID = creds[0]
+        //             env.AWS_SECRET_ACCESS_KEY = creds[1]
+        //             env.AWS_SESSION_TOKEN = creds[2]
+        //         }
+        //     }
+        // }
         stage('Build') {
             steps {
                 echo 'Building the project...'
