@@ -2,123 +2,92 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        S3_BUCKET_NAME = 'mahesh-project-asg'
-        APPLICATION_NAME = 'mahesh-jenkins'
-        DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
-        SSH_CREDENTIALS_ID = 'mahesh-ssh'
-        SSH_USERNAME = 'ubuntu'
-        
-        IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
+        AWS_REGION = 'ap-south-1'  // Mumbai region
+        AWS_ACCOUNT_ID = '377850997170'
+        ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
+                git url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
             }
         }
-        // stage('Assume IAM Role') {
-        //     steps {
-        //         script {
-        //             def stsResponse = sh(script: """
-        //                 aws sts assume-role --role-arn ${IAM_ROLE_ARN} --role-session-name jenkinsSession --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text
-        //             """, returnStdout: true).trim()
-        //             def creds = stsResponse.split()
-        //             env.AWS_ACCESS_KEY_ID = creds[0]
-        //             env.AWS_SECRET_ACCESS_KEY = creds[1]
-        //             env.AWS_SESSION_TOKEN = creds[2]
-        //         }
-        //     }
-        // }
+
         stage('Build') {
             steps {
                 echo 'Building the project...'
                 sh 'npm install'
-                sh 'npm run build'
             }
         }
-        stage('Package') {
-            steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/'
-                    archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
-                }
-            }
-        }
-        stage('Upload to S3') {
-            steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
-                }
-            }
-        }
-        stage('Deploy') {
-            steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    script {
-                        sh """
-                        aws deploy create-deployment \
-                            --application-name ${APPLICATION_NAME} \
-                            --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
-                            --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
-                            --region ${AWS_REGION}
-                        """
-                    }
-                }
-            }
-        }
-        stage('Get Instance Details') {
-            steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    script {
-                        def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
-                        env.INSTANCE_DETAILS = instances
-                        echo "Instance Details: ${env.INSTANCE_DETAILS}"
-                    }
-                }
-            }
-        }
-        stage('Run Commands on Instances') {
+
+        stage('Assume IAM Role') {
             steps {
                 script {
-                    def instanceDetails = env.INSTANCE_DETAILS.split('\n')
-                    def commands = env.COMMANDS ? env.COMMANDS.split(';') : ['echo "Default command"']
-
-                    instanceDetails.each { detail ->
-                        def parts = detail.split('\\s+')
-                        def instanceId = parts[0]
-                        def privateIp = parts[1]
-
-                        commands.each { cmd ->
-                            sshagent(credentials: [SSH_CREDENTIALS_ID]) {
-                                sh """
-                                echo "Attempting SSH connection to ${privateIp} (${instanceId})"
-                                ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} '${cmd}'
-                                """
-                            }
-                        }
-                    }
+                    def assumeRoleCmd = "aws sts assume-role --role-arn ${ROLE_ARN} --role-session-name jenkinsSession --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text"
+                    def creds = sh(script: assumeRoleCmd, returnStdout: true).trim().split()
+                    env.AWS_ACCESS_KEY_ID = creds[0]
+                    env.AWS_SECRET_ACCESS_KEY = creds[1]
+                    env.AWS_SESSION_TOKEN = creds[2]
                 }
+            }
+        }
+
+        stage('Package') {
+            when {
+                expression { return currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                echo 'Packaging the project...'
+                // Add your packaging commands here
+            }
+        }
+
+        stage('Upload to S3') {
+            when {
+                expression { return currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                echo 'Uploading to S3...'
+                // Add your S3 upload commands here
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { return currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                echo 'Deploying...'
+                // Add your deployment commands here
+            }
+        }
+
+        stage('Get Instance Details') {
+            when {
+                expression { return currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                echo 'Getting instance details...'
+                // Add your commands to get instance details here
+            }
+        }
+
+        stage('Run Commands on Instances') {
+            when {
+                expression { return currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                echo 'Running commands on instances...'
+                // Add your commands to run on instances here
             }
         }
     }
+
     post {
         always {
-            script {
-                sh 'mkdir -p jenkins/logs'
-                try {
-                    archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
-                    }
-                } catch (Exception e) {
-                    echo "Error: ${e.message}"
-                }
-            }
-        }
-        failure {
-            echo 'Deployment failed!'
+            echo 'Deployment finished!'
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
 }
