@@ -16,8 +16,8 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building the project...'
-                sh 'npm install'
+                echo 'Skipping build as no package.json is present...'
+                sh 'ls -la'  // List the files in the workspace to verify the contents
             }
         }
 
