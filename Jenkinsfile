@@ -21,7 +21,6 @@ pipeline {
             steps {
                 echo 'Building the project...'
                 sh 'npm install'
-                // Ensure npm run build script is available in package.json
                 sh 'npm run build'
             }
         }
@@ -55,17 +54,36 @@ pipeline {
                 }
             }
         }
-        stage('Declarative: Post Actions') {
+        stage('Get Instance Details') {
+            steps {
+                withAWS(credentials: 'aws', region: AWS_REGION) {
+                    script {
+                        def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
+                        env.INSTANCE_DETAILS = instances
+                        echo "Instance Details: ${env.INSTANCE_DETAILS}"
+                    }
+                }
+            }
+        }
+        stage('Run Commands on Instances') {
             steps {
                 script {
-                    sh 'mkdir -p jenkins/logs'
-                    try {
-                        archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
-                        withAWS(credentials: 'aws', region: AWS_REGION) {
-                            sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
+                    def instanceDetails = env.INSTANCE_DETAILS.split('\n')
+                    def commands = env.COMMANDS ? env.COMMANDS.split(';') : ['echo "Default command"']
+
+                    instanceDetails.each { detail ->
+                        def parts = detail.split('\\s+')
+                        def instanceId = parts[0]
+                        def privateIp = parts[1]
+
+                        commands.each { cmd ->
+                            sshagent(credentials: [SSH_CREDENTIALS_ID]) {
+                                sh """
+                                echo "Attempting SSH connection to ${privateIp} (${instanceId})"
+                                ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} '${cmd}'
+                                """
+                            }
                         }
-                    } catch (Exception e) {
-                        echo "Error: ${e.message}"
                     }
                 }
             }
@@ -73,7 +91,17 @@ pipeline {
     }
     post {
         always {
-            echo 'Deployment finished!'
+            script {
+                sh 'mkdir -p jenkins/logs'
+                try {
+                    archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
+                        sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
+                    }
+                } catch (Exception e) {
+                    echo "Error: ${e.message}"
+                }
+            }
         }
         failure {
             echo 'Deployment failed!'
