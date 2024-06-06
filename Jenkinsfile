@@ -9,8 +9,8 @@ pipeline {
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
         IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
-        COMMANDS = "cd /var/www/html; ls -l; cd /home/ubuntu; pwd"
-        DIRECTORIES = "/var/www/html /home/ubuntu"
+        COMMANDS = "cd /var/www/html; ls -l; cd /home/ubuntu; pwd" // Multiple commands separated by semicolon
+        DIRECTORIES = "/var/www/html /home/ubuntu" // Multiple directories separated by space
     }
 
     stages {
@@ -35,10 +35,8 @@ pipeline {
             steps {
                 script {
                     echo 'Packaging the project...'
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ webpack.config.js package.json package-lock.json'
-                        archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
-                    }
+                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ webpack.config.js package.json package-lock.json'
+                    archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
                 }
             }
         }
@@ -46,9 +44,7 @@ pipeline {
             steps {
                 script {
                     echo 'Uploading to S3...'
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
-                    }
+                    sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip --region ${AWS_REGION}"
                 }
             }
         }
@@ -56,15 +52,13 @@ pipeline {
             steps {
                 script {
                     echo 'Deploying the application...'
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        sh """
-                        aws deploy create-deployment \
-                            --application-name ${APPLICATION_NAME} \
-                            --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
-                            --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
-                            --region ${AWS_REGION}
-                        """
-                    }
+                    sh """
+                    aws deploy create-deployment \
+                        --application-name ${APPLICATION_NAME} \
+                        --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
+                        --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
+                        --region ${AWS_REGION}
+                    """
                 }
             }
         }
@@ -72,11 +66,9 @@ pipeline {
             steps {
                 script {
                     echo 'Getting instance details...'
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
-                        env.INSTANCE_DETAILS = instances
-                        echo "Instance Details: ${env.INSTANCE_DETAILS}"
-                    }
+                    def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
+                    env.INSTANCE_DETAILS = instances
+                    echo "Instance Details: ${env.INSTANCE_DETAILS}"
                 }
             }
         }
@@ -115,9 +107,7 @@ pipeline {
                 sh 'mkdir -p jenkins/logs'
                 try {
                     archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
-                    withAWS(credentials: 'aws', region: AWS_REGION) {
-                        sh 'aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log'
-                    }
+                    sh "aws s3 cp build.log s3://${S3_BUCKET_NAME}/jenkins-logs/${env.BUILD_NUMBER}.log --region ${AWS_REGION}"
                 } catch (Exception e) {
                     echo "Error: ${e.message}"
                 }
