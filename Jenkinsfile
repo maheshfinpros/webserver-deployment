@@ -26,8 +26,8 @@ pipeline {
             steps {
                 script {
                     echo 'Building the project...'
-                    sh 'npm install'
-                    sh 'npm run build'
+                    sh 'sudo npm install'
+                    sh 'sudo npm run build'
                 }
             }
         }
