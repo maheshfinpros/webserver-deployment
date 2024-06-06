@@ -16,35 +16,47 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
+                script {
+                    echo 'Checking out the code...'
+                    git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
+                }
             }
         }
         stage('Build') {
             steps {
-                echo 'Building the project...'
-                sh 'npm install'
-                sh 'npm run build'
+                script {
+                    echo 'Building the project...'
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
             }
         }
         stage('Package') {
             steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/'
-                    archiveArtifacts artifacts: 'build.log', allowEmptyArchive: true
+                script {
+                    echo 'Packaging the project...'
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
+                        sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/'
+                        archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
+                    }
                 }
             }
         }
         stage('Upload to S3') {
             steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
+                script {
+                    echo 'Uploading to S3...'
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
+                        sh 'aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip'
+                    }
                 }
             }
         }
         stage('Deploy') {
             steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    script {
+                script {
+                    echo 'Deploying the application...'
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
                         sh """
                         aws deploy create-deployment \
                             --application-name ${APPLICATION_NAME} \
@@ -58,8 +70,9 @@ pipeline {
         }
         stage('Get Instance Details') {
             steps {
-                withAWS(credentials: 'aws', region: AWS_REGION) {
-                    script {
+                script {
+                    echo 'Getting instance details...'
+                    withAWS(credentials: 'aws', region: AWS_REGION) {
                         def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
                         env.INSTANCE_DETAILS = instances
                         echo "Instance Details: ${env.INSTANCE_DETAILS}"
@@ -70,6 +83,7 @@ pipeline {
         stage('Run Commands on Instances') {
             steps {
                 script {
+                    echo 'Running commands on instances...'
                     def instanceDetails = env.INSTANCE_DETAILS.split('\n')
                     def commandsList = env.COMMANDS.split(';')
                     def directories = env.DIRECTORIES.split(' ')
@@ -97,6 +111,7 @@ pipeline {
     post {
         always {
             script {
+                echo 'Performing post-build actions...'
                 sh 'mkdir -p jenkins/logs'
                 try {
                     archiveArtifacts artifacts: '**/build.log', allowEmptyArchive: true
@@ -113,7 +128,3 @@ pipeline {
         }
     }
 }
-
-
-
-ftg
