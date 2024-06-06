@@ -9,6 +9,8 @@ pipeline {
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
         IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
+        COMMANDS = "cd /var/www/html; ls -l; cd /home/ubuntu; pwd" // Example commands
+        DIRECTORIES = "/var/www/html /home/ubuntu" // Example directories
     }
 
     stages {
@@ -69,19 +71,22 @@ pipeline {
             steps {
                 script {
                     def instanceDetails = env.INSTANCE_DETAILS.split('\n')
-                    def commands = env.COMMANDS ? env.COMMANDS.split(';') : ['echo "Default command"']
+                    def commandsList = env.COMMANDS.split(';')
+                    def directories = env.DIRECTORIES.split(' ')
 
                     instanceDetails.each { detail ->
                         def parts = detail.split('\\s+')
                         def instanceId = parts[0]
                         def privateIp = parts[1]
 
-                        commands.each { cmd ->
-                            sshagent(credentials: [SSH_CREDENTIALS_ID]) {
-                                sh """
-                                echo "Attempting SSH connection to ${privateIp} (${instanceId})"
-                                ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} '${cmd}'
-                                """
+                        directories.each { dir ->
+                            commandsList.each { cmd ->
+                                sshagent(credentials: [SSH_CREDENTIALS_ID]) {
+                                    sh """
+                                    echo "Attempting SSH connection to ${privateIp} (${instanceId})"
+                                    ssh -o StrictHostKeyChecking=no ${SSH_USERNAME}@${privateIp} 'cd ${dir} && ${cmd}'
+                                    """
+                                }
                             }
                         }
                     }
