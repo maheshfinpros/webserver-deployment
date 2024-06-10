@@ -52,6 +52,8 @@ pipeline {
                     def activeDeployment = sh(script: 'aws deploy list-deployments --application-name mahesh-jenkins --deployment-group-name mahesh-jenkins-DG --include-only-statuses InProgress --query deployments[0] --output text --region ap-south-1', returnStdout: true).trim()
                     if (activeDeployment != 'None') {
                         echo "Active deployment found: ${activeDeployment}"
+                        sh "aws deploy stop-deployment --deployment-id ${activeDeployment} --region ap-south-1"
+                        echo "Stopped active deployment: ${activeDeployment}"
                     } else {
                         echo 'No active deployments found.'
                     }
