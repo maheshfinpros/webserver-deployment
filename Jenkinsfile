@@ -7,9 +7,9 @@ pipeline {
         APP_NAME = 'mahesh-jenkins'
         DEPLOY_GROUP = 'mahesh-jenkins-DG'
         INSTANCE_IDS = 'i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf'
-        SSH_CREDENTIALS_ID = 'mahesh-ssh'  // Updated SSH credentials ID
-        COMMANDS = 'your-command-here'  // Update with the actual commands
-        DIRECTORIES = 'dir1 dir2'  // Example directories as a space-separated string
+        SSH_CREDENTIALS_ID = 'mahesh-ssh'
+        COMMANDS = 'your-command-here'
+        DIRECTORIES = 'dir1 dir2'
     }
 
     stages {
@@ -53,6 +53,20 @@ pipeline {
             steps {
                 echo 'Uploading to S3...'
                 sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET}/webserver-deployment.zip --region ${S3_REGION}"
+            }
+        }
+        stage('Check and Stop Active Deployment') {
+            steps {
+                echo 'Checking for active deployments...'
+                script {
+                    def activeDeploymentId = sh(script: "aws deploy list-deployments --application-name ${APP_NAME} --deployment-group-name ${DEPLOY_GROUP} --include-only-statuses InProgress --query 'deployments[0]' --output text --region ${S3_REGION}", returnStdout: true).trim()
+                    if (activeDeploymentId != "None") {
+                        echo "Stopping active deployment: ${activeDeploymentId}"
+                        sh "aws deploy stop-deployment --deployment-id ${activeDeploymentId} --region ${S3_REGION}"
+                    } else {
+                        echo "No active deployments found."
+                    }
+                }
             }
         }
         stage('Deploy') {
