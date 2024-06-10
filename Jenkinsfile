@@ -97,7 +97,7 @@ pipeline {
             steps {
                 echo 'Running commands on instances...'
                 script {
-                    sshagent(credentials: ['ubuntu']) {
+                    sshagent(credentials: ['mahesh-ssh']) { // Updated the ID here
                         def instances = [
                             "3.110.224.24",
                             "13.127.198.30",
