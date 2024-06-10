@@ -9,7 +9,7 @@ pipeline {
         INSTANCE_IDS = 'i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf'
         SSH_CREDENTIALS_ID = 'jenkins-ssh-key'
         COMMANDS = 'your-command-here'  // Can be updated with a list of commands if needed
-        DIRECTORIES = ['dir1', 'dir2']  // Example directories
+        DIRECTORIES = 'dir1 dir2'  // Example directories as a space-separated string
     }
 
     stages {
@@ -78,8 +78,10 @@ pipeline {
                 echo 'Running commands on instances...'
                 script {
                     sshagent([SSH_CREDENTIALS_ID]) {
-                        for (instance in INSTANCE_IDS.split()) {
-                            for (dir in DIRECTORIES) {
+                        def instanceList = INSTANCE_IDS.split()
+                        def directoryList = DIRECTORIES.split()
+                        for (instance in instanceList) {
+                            for (dir in directoryList) {
                                 sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'cd ${dir} && ${COMMANDS}'"
                             }
                         }
