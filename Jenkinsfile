@@ -1,18 +1,12 @@
 pipeline {
     agent any
 
-    environment {
-        S3_BUCKET = 'mahesh-project-asg'
-        S3_REGION = 'ap-south-1'
-        APP_NAME = 'mahesh-jenkins'
-        DEPLOY_GROUP = 'mahesh-jenkins-DG'
-        INSTANCE_IDS = 'i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf'
-        SSH_CREDENTIALS_ID = 'mahesh-ssh' // Updated SSH credential ID
-        COMMANDS = 'your-command-here'
-        DIRECTORIES = 'dir1 dir2'
-    }
-
     stages {
+        stage('Declarative: Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
         stage('Checkout SCM') {
             steps {
                 checkout scm
@@ -24,13 +18,9 @@ pipeline {
                     writeFile file: 'package.json', text: '''{
                         "name": "mahesh-project",
                         "version": "1.0.0",
-                        "description": "",
-                        "main": "index.js",
                         "scripts": {
                             "build": "echo Build process completed successfully"
-                        },
-                        "author": "",
-                        "license": "ISC"
+                        }
                     }'''
                 }
             }
@@ -52,19 +42,18 @@ pipeline {
         stage('Upload to S3') {
             steps {
                 echo 'Uploading to S3...'
-                sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET}/webserver-deployment.zip --region ${S3_REGION}"
+                sh 'aws s3 cp webserver-deployment.zip s3://mahesh-project-asg/webserver-deployment.zip --region ap-south-1'
             }
         }
         stage('Check and Stop Active Deployment') {
             steps {
                 echo 'Checking for active deployments...'
                 script {
-                    def activeDeploymentId = sh(script: "aws deploy list-deployments --application-name ${APP_NAME} --deployment-group-name ${DEPLOY_GROUP} --include-only-statuses InProgress --query deployments[0] --output text --region ${S3_REGION}", returnStdout: true).trim()
-                    if (activeDeploymentId != "None") {
-                        echo "Stopping active deployment: ${activeDeploymentId}"
-                        sh "aws deploy stop-deployment --deployment-id ${activeDeploymentId} --region ${S3_REGION}"
+                    def activeDeployment = sh(script: 'aws deploy list-deployments --application-name mahesh-jenkins --deployment-group-name mahesh-jenkins-DG --include-only-statuses InProgress --query deployments[0] --output text --region ap-south-1', returnStdout: true).trim()
+                    if (activeDeployment != 'None') {
+                        echo "Active deployment found: ${activeDeployment}"
                     } else {
-                        echo "No active deployments found."
+                        echo 'No active deployments found.'
                     }
                 }
             }
@@ -73,8 +62,8 @@ pipeline {
             steps {
                 echo 'Deploying the application...'
                 script {
-                    def deployOutput = sh(script: "aws deploy create-deployment --application-name ${APP_NAME} --deployment-group-name ${DEPLOY_GROUP} --s3-location bucket=${S3_BUCKET},bundleType=zip,key=webserver-deployment.zip --region ${S3_REGION}", returnStdout: true).trim()
-                    echo "Deployment Output: ${deployOutput}"
+                    def deploymentOutput = sh(script: 'aws deploy create-deployment --application-name mahesh-jenkins --deployment-group-name mahesh-jenkins-DG --s3-location bucket=mahesh-project-asg,bundleType=zip,key=webserver-deployment.zip --region ap-south-1', returnStdout: true).trim()
+                    echo "Deployment Output: ${deploymentOutput}"
                 }
             }
         }
@@ -82,7 +71,7 @@ pipeline {
             steps {
                 echo 'Getting instance details...'
                 script {
-                    def instanceDetails = sh(script: "aws ec2 describe-instances --instance-ids ${INSTANCE_IDS} --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text --region ${S3_REGION}", returnStdout: true).trim()
+                    def instanceDetails = sh(script: 'aws ec2 describe-instances --instance-ids i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf --query Reservations[*].Instances[*].[InstanceId,PrivateIpAddress] --output text --region ap-south-1', returnStdout: true).trim()
                     echo "Instance Details: ${instanceDetails}"
                 }
             }
@@ -91,31 +80,18 @@ pipeline {
             steps {
                 echo 'Running commands on instances...'
                 script {
-                    sshagent([SSH_CREDENTIALS_ID]) {
-                        def instanceList = INSTANCE_IDS.split()
-                        def directoryList = DIRECTORIES.split()
-                        for (instance in instanceList) {
-                            for (dir in directoryList) {
-                                sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'cd ${dir} && ${COMMANDS}'"
-                            }
-                        }
+                    sshagent(['ubuntu']) {
+                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@3.110.224.24 "ping -c 4 google.com"'
+                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@13.127.198.30 "ping -c 4 google.com"'
+                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@52.66.24.205 "ping -c 4 google.com"'
                     }
                 }
             }
         }
-        stage('Declarative: Post Actions') {
-            steps {
-                echo 'Performing post-build actions...'
-                sh 'mkdir -p jenkins/logs'
-                archiveArtifacts artifacts: 'jenkins/logs/**'
-                script {
-                    if (fileExists('build.log')) {
-                        archiveArtifacts artifacts: 'build.log'
-                    } else {
-                        echo 'Error: build.log does not exist.'
-                    }
-                }
-            }
+    }
+    post {
+        always {
+            echo 'Pipeline finished.'
         }
     }
 }
