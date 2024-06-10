@@ -1,35 +1,40 @@
 pipeline {
     agent any
-    
+
     environment {
-        AWS_REGION = 'ap-south-1'
         S3_BUCKET = 'mahesh-project-asg'
-        DEPLOYMENT_GROUP = 'mahesh-jenkins-DG'
-        APPLICATION_NAME = 'mahesh-jenkins'
+        S3_REGION = 'ap-south-1'
+        APP_NAME = 'mahesh-jenkins'
+        DEPLOY_GROUP = 'mahesh-jenkins-DG'
+        INSTANCE_IDS = 'i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf'
+        SSH_CREDENTIALS_ID = 'jenkins-ssh-key'
+        COMMANDS = 'your-command-here'  // Can be updated with a list of commands if needed
+        DIRECTORIES = ['dir1', 'dir2']  // Example directories
     }
-    
+
     stages {
         stage('Checkout SCM') {
             steps {
                 checkout scm
             }
         }
-        
         stage('Create package.json') {
             steps {
                 script {
                     writeFile file: 'package.json', text: '''{
                         "name": "mahesh-project",
                         "version": "1.0.0",
+                        "description": "",
+                        "main": "index.js",
                         "scripts": {
                             "build": "echo Build process completed successfully"
                         },
-                        "dependencies": {}
+                        "author": "",
+                        "license": "ISC"
                     }'''
                 }
             }
         }
-        
         stage('Build') {
             steps {
                 echo 'Building the project...'
@@ -37,90 +42,64 @@ pipeline {
                 sh 'npm run build'
             }
         }
-        
         stage('Package') {
             steps {
                 echo 'Packaging the project...'
                 sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ webpack.config.js package.json package-lock.json'
-                archiveArtifacts artifacts: 'webserver-deployment.zip', fingerprint: true
+                archiveArtifacts artifacts: 'webserver-deployment.zip'
             }
         }
-        
         stage('Upload to S3') {
             steps {
                 echo 'Uploading to S3...'
-                sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET}/webserver-deployment.zip --region ${AWS_REGION}"
+                sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET}/webserver-deployment.zip --region ${S3_REGION}"
             }
         }
-        
         stage('Deploy') {
             steps {
                 echo 'Deploying the application...'
                 script {
-                    def deployCommand = """
-                        aws deploy create-deployment --application-name ${APPLICATION_NAME} \
-                        --deployment-group-name ${DEPLOYMENT_GROUP} \
-                        --s3-location bucket=${S3_BUCKET},bundleType=zip,key=webserver-deployment.zip \
-                        --region ${AWS_REGION}
-                    """
-                    def deployOutput = sh(script: deployCommand, returnStdout: true).trim()
+                    def deployOutput = sh(script: "aws deploy create-deployment --application-name ${APP_NAME} --deployment-group-name ${DEPLOY_GROUP} --s3-location bucket=${S3_BUCKET},bundleType=zip,key=webserver-deployment.zip --region ${S3_REGION}", returnStdout: true).trim()
                     echo "Deployment Output: ${deployOutput}"
                 }
             }
         }
-        
         stage('Get Instance Details') {
             steps {
                 echo 'Getting instance details...'
                 script {
-                    def instanceDetails = sh(script: """
-                        aws ec2 describe-instances --filters Name=instance-state-name,Values=running \
-                        --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' \
-                        --output text --region ${AWS_REGION}
-                    """, returnStdout: true).trim()
+                    def instanceDetails = sh(script: "aws ec2 describe-instances --instance-ids ${INSTANCE_IDS} --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text --region ${S3_REGION}", returnStdout: true).trim()
                     echo "Instance Details: ${instanceDetails}"
                 }
             }
         }
-        
         stage('Run Commands on Instances') {
             steps {
                 echo 'Running commands on instances...'
                 script {
-                    def instanceIps = ['10.0.1.67', '10.0.0.57', '172.31.43.149']
-                    for (ip in instanceIps) {
-                        sshagent(['ubuntu']) {
-                            sh "echo Attempting SSH connection to ${ip}"
-                            def commands = [
-                                "cd /var/www/html && ls -l",
-                                "cd /home/ubuntu && ls -l"
-                            ]
-                            for (cmd in commands) {
-                                sh "ssh -o StrictHostKeyChecking=no ubuntu@${ip} ${cmd}"
+                    sshagent([SSH_CREDENTIALS_ID]) {
+                        for (instance in INSTANCE_IDS.split()) {
+                            for (dir in DIRECTORIES) {
+                                sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'cd ${dir} && ${COMMANDS}'"
                             }
                         }
                     }
                 }
             }
         }
-    }
-    
-    post {
-        always {
-            echo 'Performing post-build actions...'
-            sh 'mkdir -p jenkins/logs'
-            archiveArtifacts artifacts: 'jenkins/logs/*.log', fingerprint: true
-            script {
-                def logFile = 'build.log'
-                if (fileExists(logFile)) {
-                    sh "aws s3 cp ${logFile} s3://${S3_BUCKET}/jenkins-logs/121.log --region ${AWS_REGION}"
-                } else {
-                    echo "Error: ${logFile} does not exist."
+        stage('Declarative: Post Actions') {
+            steps {
+                echo 'Performing post-build actions...'
+                sh 'mkdir -p jenkins/logs'
+                archiveArtifacts artifacts: 'jenkins/logs/**'
+                script {
+                    if (fileExists('build.log')) {
+                        archiveArtifacts artifacts: 'build.log'
+                    } else {
+                        echo 'Error: build.log does not exist.'
+                    }
                 }
             }
-        }
-        failure {
-            echo 'Deployment failed!'
         }
     }
 }
