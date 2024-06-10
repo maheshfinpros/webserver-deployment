@@ -83,9 +83,18 @@ pipeline {
                 echo 'Running commands on instances...'
                 script {
                     sshagent(['mahesh-ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no mahesh@3.110.224.24 "ping -c 4 google.com"'
-                        sh 'ssh -o StrictHostKeyChecking=no mahesh@13.127.198.30 "ping -c 4 google.com"'
-                        sh 'ssh -o StrictHostKeyChecking=no mahesh@52.66.24.205 "ping -c 4 google.com"'
+                        def commands = ["ssh -o StrictHostKeyChecking=no mahesh@3.110.224.24 ping -c 4 google.com",
+                                        "ssh -o StrictHostKeyChecking=no mahesh@13.127.198.30 ping -c 4 google.com",
+                                        "ssh -o StrictHostKeyChecking=no mahesh@52.66.24.205 ping -c 4 google.com"]
+
+                        for (command in commands) {
+                            try {
+                                sh command
+                            } catch (Exception e) {
+                                echo "Failed to run command: ${command}"
+                                echo "Error: ${e.getMessage()}"
+                            }
+                        }
                     }
                 }
             }
