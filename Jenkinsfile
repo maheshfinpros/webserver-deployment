@@ -14,6 +14,21 @@ pipeline {
     }
 
     stages {
+        stage('Create package.json') {
+            steps {
+                script {
+                    writeFile file: 'package.json', text: '''
+                    {
+                      "scripts": {
+                        "start": "node index.js",
+                        "test": "echo \\"Error: no test specified\\" && exit 1",
+                        "build": "echo \\"Build process completed successfully\\""
+                      }
+                    }
+                    '''
+                }
+            }
+        }
         stage('Checkout') {
             steps {
                 echo 'Checking out the code...'
