@@ -14,3 +14,10 @@
     "body-parser": "^1.19.0"
   }
 }
+{
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"Build process completed successfully\""
+  }
+}
