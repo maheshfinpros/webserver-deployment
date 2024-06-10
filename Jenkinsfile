@@ -9,63 +9,53 @@ pipeline {
         SSH_CREDENTIALS_ID = 'mahesh-ssh'
         SSH_USERNAME = 'ubuntu'
         IAM_ROLE_ARN = 'arn:aws:iam::377850997170:role/aws-codedelpoy-ec2'
-        COMMANDS = "cd /var/www/html; ls -l; cd /home/ubuntu; pwd" // Multiple commands separated by semicolon
-        DIRECTORIES = "/var/www/html /home/ubuntu" // Multiple directories separated by space
+        COMMANDS = "ls -l; pwd" // Example commands
+        DIRECTORIES = "/var/www/html /home/ubuntu" // Example directories
     }
 
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    echo 'Checking out the code...'
-                    git branch: 'main', url: 'https://github.com/maheshfinpros/webserver-deployment.git', credentialsId: 'github'
-                }
+                echo 'Checking out the code...'
+                checkout scm
             }
         }
         stage('Build') {
             steps {
-                script {
-                    echo 'Building the project...'
-                    sh 'npm install'
-                    sh 'npm run build'
-                }
+                echo 'Building the project...'
+                sh 'npm install'
+                sh 'npm run build'
             }
         }
         stage('Package') {
             steps {
-                script {
-                    echo 'Packaging the project...'
-                    sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ webpack.config.js package.json package-lock.json'
-                    archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
-                }
+                echo 'Packaging the project...'
+                sh 'zip -r webserver-deployment.zip Jenkinsfile README.md appspec.yml index1.html index2.html scripts/ webpack.config.js package.json package-lock.json'
+                archiveArtifacts artifacts: 'webserver-deployment.zip', allowEmptyArchive: true
             }
         }
         stage('Upload to S3') {
             steps {
-                script {
-                    echo 'Uploading to S3...'
-                    sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip --region ${AWS_REGION}"
-                }
+                echo 'Uploading to S3...'
+                sh "aws s3 cp webserver-deployment.zip s3://${S3_BUCKET_NAME}/webserver-deployment.zip --region ${AWS_REGION}"
             }
         }
         stage('Deploy') {
             steps {
-                script {
-                    echo 'Deploying the application...'
-                    sh """
-                    aws deploy create-deployment \
-                        --application-name ${APPLICATION_NAME} \
-                        --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
-                        --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
-                        --region ${AWS_REGION}
-                    """
-                }
+                echo 'Deploying the application...'
+                sh """
+                aws deploy create-deployment \
+                    --application-name ${APPLICATION_NAME} \
+                    --deployment-group-name ${DEPLOYMENT_GROUP_NAME} \
+                    --s3-location bucket=${S3_BUCKET_NAME},bundleType=zip,key=webserver-deployment.zip \
+                    --region ${AWS_REGION}
+                """
             }
         }
         stage('Get Instance Details') {
             steps {
+                echo 'Getting instance details...'
                 script {
-                    echo 'Getting instance details...'
                     def instances = sh(script: "aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running' --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress]' --output text", returnStdout: true).trim()
                     env.INSTANCE_DETAILS = instances
                     echo "Instance Details: ${env.INSTANCE_DETAILS}"
@@ -74,8 +64,8 @@ pipeline {
         }
         stage('Run Commands on Instances') {
             steps {
+                echo 'Running commands on instances...'
                 script {
-                    echo 'Running commands on instances...'
                     def instanceDetails = env.INSTANCE_DETAILS.split('\n')
                     def commandsList = env.COMMANDS.split(';')
                     def directories = env.DIRECTORIES.split(' ')
