@@ -7,8 +7,8 @@ pipeline {
         APP_NAME = 'mahesh-jenkins'
         DEPLOY_GROUP = 'mahesh-jenkins-DG'
         INSTANCE_IDS = 'i-09759cd2f95e9f5f9 i-06b7c8a20f24b5af5 i-0ef074045f487a1cf'
-        SSH_CREDENTIALS_ID = 'jenkins-ssh-key'
-        COMMANDS = 'your-command-here'  // Can be updated with a list of commands if needed
+        SSH_CREDENTIALS_ID = 'mahesh-ssh'  // Updated SSH credentials ID
+        COMMANDS = 'your-command-here'  // Update with the actual commands
         DIRECTORIES = 'dir1 dir2'  // Example directories as a space-separated string
     }
 
