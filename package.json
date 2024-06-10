@@ -1,23 +1,19 @@
 {
   "name": "mahesh-project",
   "version": "1.0.0",
-  "description": "Sample project description",
+  "description": "Project for Jenkins pipeline demonstration",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Your Name",
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.17.1",
-    "body-parser": "^1.19.0"
-  }
-}
-{
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "echo \"Build process completed successfully\""
+  },
+  "author": "Mahesh",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
   }
 }
