@@ -80,10 +80,10 @@ pipeline {
             steps {
                 echo 'Running commands on instances...'
                 script {
-                    sshagent(['ubuntu']) {
-                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@3.110.224.24 "ping -c 4 google.com"'
-                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@13.127.198.30 "ping -c 4 google.com"'
-                        sh 'ssh -o StrictHostKeyChecking=no ubuntu@52.66.24.205 "ping -c 4 google.com"'
+                    sshagent(['mahesh-ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no mahesh@3.110.224.24 "ping -c 4 google.com"'
+                        sh 'ssh -o StrictHostKeyChecking=no mahesh@13.127.198.30 "ping -c 4 google.com"'
+                        sh 'ssh -o StrictHostKeyChecking=no mahesh@52.66.24.205 "ping -c 4 google.com"'
                     }
                 }
             }
