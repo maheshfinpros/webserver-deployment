@@ -93,7 +93,14 @@ pipeline {
                 script {
                     def instances = sh(script: "aws ec2 describe-instances --filters Name=tag:Name,Values=${INSTANCE_TAG_NAME} Name=instance-state-name,Values=running --query Reservations[*].Instances[*].[InstanceId] --output text --region ${AWS_REGION}", returnStdout: true).trim().split()
                     for (instance in instances) {
-                        sh "aws ssm send-command --instance-ids ${instance} --document-name 'AWS-RunShellScript' --comment 'Running ping commands on instance' --parameters commands=['ping google.com', 'ping facebook.com', 'ping youtube.com'] --region ${AWS_REGION}"
+                        sh """
+                        aws ssm send-command \
+                            --instance-ids ${instance} \
+                            --document-name 'AWS-RunShellScript' \
+                            --comment 'Running ping commands on instance' \
+                            --parameters '{"commands":["ping google.com", "ping facebook.com", "ping youtube.com"]}' \
+                            --region ${AWS_REGION}
+                        """
                     }
                 }
             }
