@@ -6,7 +6,7 @@ pipeline {
         S3_BUCKET = 'mahesh-project-asg'
         APP_NAME = 'mahesh-jenkins'
         DEPLOYMENT_GROUP_NAME = 'mahesh-jenkins-DG'
-        INSTANCE_TAG_NAME = 'mahesh-jenkins-server'
+        INSTANCE_IDS = 'i-06b7c8a20f24b5af5 i-09759cd2f95e9f5f9'
 
         // File paths
         ARTIFACT_NAME = 'webserver-deployment.zip'
@@ -71,7 +71,7 @@ pipeline {
             steps {
                 echo 'Getting instance details...'
                 script {
-                    def instancesOutput = sh(script: "${AWS_EC2_COMMAND} describe-instances --filters Name=tag:Name,Values=${INSTANCE_TAG_NAME} Name=instance-state-name,Values=running --query Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress] --output text --region ${AWS_REGION}", returnStdout: true).trim()
+                    def instancesOutput = sh(script: "${AWS_EC2_COMMAND} describe-instances --instance-ids ${INSTANCE_IDS} --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress]' --output text --region ${AWS_REGION}", returnStdout: true).trim()
                     echo "Instances Output: ${instancesOutput}"
                     env.INSTANCE_IDS = instancesOutput
                 }
@@ -88,7 +88,7 @@ pipeline {
                             --instance-ids ${instance} \
                             --document-name 'AWS-RunShellScript' \
                             --comment 'Running custom commands on instance' \
-                            --parameters '{"commands":["ping -c 4 google.com", "echo \\"Hello World\\" > /tmp/maheshmatta", "cat /tmp/maheshmatta"]}' \
+                            --parameters '{"commands":["echo \\"Hello, World!\\" > /tmp/testfile"]}' \
                             --region ${AWS_REGION}
                         """
                     }
