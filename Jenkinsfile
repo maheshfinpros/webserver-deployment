@@ -73,6 +73,7 @@ pipeline {
                 script {
                     def instancesOutput = sh(script: "${AWS_EC2_COMMAND} describe-instances --filters Name=tag:Name,Values=${INSTANCE_TAG_NAME} Name=instance-state-name,Values=running --query Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress] --output text --region ${AWS_REGION}", returnStdout: true).trim()
                     echo "Instances Output: ${instancesOutput}"
+                    env.INSTANCE_IDS = instancesOutput
                 }
             }
         }
@@ -80,14 +81,14 @@ pipeline {
             steps {
                 echo 'Running commands on instances...'
                 script {
-                    def instances = sh(script: "${AWS_EC2_COMMAND} describe-instances --filters Name=tag:Name,Values=${INSTANCE_TAG_NAME} Name=instance-state-name,Values=running --query Reservations[*].Instances[*].InstanceId --output text --region ${AWS_REGION}", returnStdout: true).trim().split()
-                    for (instance in instances) {
+                    def instanceIds = env.INSTANCE_IDS.split()
+                    for (instance in instanceIds) {
                         sh """
                         ${AWS_SSM_COMMAND} send-command \
                             --instance-ids ${instance} \
                             --document-name 'AWS-RunShellScript' \
-                            --comment 'Running ping commands on instance' \
-                            --parameters '{"commands":["ping google.com", "ping facebook.com", "ping youtube.com"]}' \
+                            --comment 'Running custom commands on instance' \
+                            --parameters '{"commands":["ping -c 4 google.com", "echo \\"Hello World\\" > /tmp/maheshmatta", "cat /tmp/maheshmatta"]}' \
                             --region ${AWS_REGION}
                         """
                     }
