@@ -11,7 +11,18 @@ pipeline {
     stages {
         stage('Checkout SCM') {
             steps {
-                git credentialsId: "${GIT_CREDENTIALS_ID}", url: 'https://github.com/maheshfinpros/webserver-deployment.git'
+                script {
+                    try {
+                        checkout([$class: 'GitSCM', branches: [[name: '*/main']], 
+                                  doGenerateSubmoduleConfigurations: false, 
+                                  extensions: [], 
+                                  userRemoteConfigs: [[credentialsId: "${GIT_CREDENTIALS_ID}", url: 'https://github.com/maheshfinpros/webserver-deployment.git']]])
+                    } catch (Exception e) {
+                        echo "Error during SCM checkout: ${e}"
+                        currentBuild.result = 'FAILURE'
+                        error("SCM checkout failed.")
+                    }
+                }
             }
         }
         stage('Build') {
@@ -82,7 +93,7 @@ pipeline {
                             if (instance != '') {
                                 sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'ping -c 4 google.com'"
                                 sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'ping -c 4 facebook.com'"
-                                sh "ssh -o StrictHostKeyChecking-no ubuntu@${instance} 'ping -c 4 youtube.com'"
+                                sh "ssh -o StrictHostKeyChecking=no ubuntu@${instance} 'ping -c 4 youtube.com'"
                             }
                         }
                     }
