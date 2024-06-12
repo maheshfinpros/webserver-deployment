@@ -49,7 +49,7 @@ pipeline {
                 echo 'Checking for active deployments...'
                 script {
                     def activeDeployment = sh(script: "aws deploy list-deployments --application-name ${APPLICATION_NAME} --deployment-group-name ${DEPLOYMENT_GROUP_NAME} --include-only-statuses InProgress --query deployments[0] --output text --region ${AWS_REGION}", returnStdout: true).trim()
-                    if (activeDeployment) {
+                    if (activeDeployment != "None") {
                         echo "Stopping active deployment: ${activeDeployment}"
                         sh "aws deploy stop-deployment --deployment-id ${activeDeployment} --region ${AWS_REGION}"
                     } else {
