@@ -83,6 +83,11 @@ pipeline {
             }
         }
         stage('Run Commands on Instances') {
+            when {
+                expression {
+                    return env.instances && env.instances.size() > 0
+                }
+            }
             steps {
                 echo 'Running commands on instances...'
                 script {
