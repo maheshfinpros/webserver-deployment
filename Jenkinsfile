@@ -73,6 +73,7 @@ pipeline {
                 echo 'Getting instance details...'
                 script {
                     def instancesOutput = sh(script: "aws ec2 describe-instances --filters Name=tag:Name,Values=${APP_NAME} Name=instance-state-name,Values=running --query Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,PublicIpAddress] --output text --region ${AWS_REGION}", returnStdout: true).trim()
+                    echo "Instances Output: ${instancesOutput}"
                     def instances = instancesOutput.split("\\n")
                     if (instances.size() > 0 && instances[0] != '') {
                         echo "Instance Details: ${instances.join(', ')}"
